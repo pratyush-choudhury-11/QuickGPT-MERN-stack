@@ -45,26 +45,6 @@ Supports text + image generation, chat management, credits system, cloud uploads
 
 ---
 
-## 🖼️ Screenshots
-
-### 🔐 Login Page
-![Login](./assets/screenshots/login.png)
-
-### 🏠 Dashboard
-![Dashboard](./assets/screenshots/dashboard.png)
-
-### 💬 Chat Interface (Dark Mode)
-![Chat Dark](./assets/screenshots/chat-dark.png)
-
-### 💬 Chat Interface (Light Mode)
-![Chat Light](./assets/screenshots/chat-light.png)
-
-### 💳 Pricing / Credits Page
-![Credits](./assets/screenshots/credits.png)
-
-> Upload your screenshots to:  
-> `/assets/screenshots/`  
-> and match filenames with the above.
 
 ---
 
