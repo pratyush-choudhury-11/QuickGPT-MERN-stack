@@ -4,6 +4,7 @@ import User from "../models/User.js"
 import imagekit from "../configs/imageKit.js"
 import openai from '../configs/openai.js'
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Text-based AI Chat Message Controller
 export const textMessageController = async (req, res) => {
@@ -78,21 +79,40 @@ export const imageMessageController = async (req, res) => {
         // Encode the prompt
         const encodedPrompt = encodeURIComponent(prompt)
 
-        // Construct ImageKit AI generation URL
-        const generatedImageUrl = `${process.env.IMAGEKIT_URL_ENDPOINT}/ik-genimg-prompt-${encodedPrompt}/quickgpt/${Date.now()}.png?tr=w-800,h-800`;
+        // ImageKit AI generation URL (smaller image = faster). The same URL is reused for every check.
+        const generatedImageUrl = `${process.env.IMAGEKIT_URL_ENDPOINT}/ik-genimg-prompt-${encodedPrompt}/quickgpt/${Date.now()}.png?tr=w-512,h-512`;
 
-        // Trigger generation by fetching from ImageKit (with a time limit)
-        const aiImageResponse = await axios.get(generatedImageUrl, {
-            responseType: "arraybuffer",
-            timeout: 55000
-        })
+        // ImageKit prepares AI images in the background.
+        // Check every 1 second, so the image is picked up as soon as it is ready.
+        
+        let ready = false
+        const maxAttempts = 45
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const response = await axios.get(generatedImageUrl, {
+                responseType: "arraybuffer",
+                timeout: 30000,
+                validateStatus: () => true
+            })
 
-        // Convert to Base64
-        const base64Image = `data:image/png;base64,${Buffer.from(aiImageResponse.data, "binary").toString('base64')}`;
+            const contentType = response.headers['content-type'] || ''
+            if (response.status === 200 && contentType.startsWith('image/')) {
+                ready = true
+                break
+            }
 
-        // Upload to ImageKit Media Library
+            const text = Buffer.from(response.data).toString('utf8').slice(0, 200)
+            console.log(`ImageKit attempt ${attempt}: status ${response.status}, ${contentType}, ${text}`)
+
+            await sleep(1000)
+        }
+
+        if (!ready) {
+            return res.json({success: false, message: "Image is taking too long to generate. Please try again."})
+        }
+
+        // Save to the Media Library straight from the URL (no base64 conversion on our server)
         const uploadResponse = await imagekit.upload({
-            file: base64Image,
+            file: generatedImageUrl,
             fileName: `${Date.now()}.png`,
             folder: "quickgpt"
         })
