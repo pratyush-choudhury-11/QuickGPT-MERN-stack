@@ -18,12 +18,11 @@ export const textMessageController = async (req, res) => {
     try {
         const userId = req.user._id
 
-        // Check credits
         if (req.user.credits < 1) {
             return res.json({ success: false, message: "You don't have enough credits to use this feature" })
         }
 
-        const { chatId, prompt } = req.body
+        const { chatId, prompt, stream: wantStream } = req.body
 
         const chat = await Chat.findOne({ userId, _id: chatId })
         if (!chat) {
@@ -32,7 +31,25 @@ export const textMessageController = async (req, res) => {
 
         chat.messages.push({ role: "user", content: prompt, timestamp: Date.now(), isImage: false })
 
-        // Start streaming headers
+        // OLD CLIENT: normal JSON reply (still faster: quick model + parallel saves)
+        if (!wantStream) {
+            const { choices } = await openai.chat.completions.create({
+                model: TEXT_MODEL,
+                messages: [{ role: "user", content: prompt }],
+            })
+
+            const reply = { ...choices[0].message, timestamp: Date.now(), isImage: false }
+            chat.messages.push(reply)
+
+            await Promise.all([
+                chat.save(),
+                User.updateOne({ _id: userId }, { $inc: { credits: -1 } }),
+            ])
+
+            return res.json({ success: true, reply })
+        }
+
+        // NEW CLIENT: streaming reply
         res.setHeader("Content-Type", "text/event-stream")
         res.setHeader("Cache-Control", "no-cache, no-transform")
         res.setHeader("Connection", "keep-alive")
@@ -56,8 +73,6 @@ export const textMessageController = async (req, res) => {
         const reply = { role: "assistant", content, timestamp: Date.now(), isImage: false }
         chat.messages.push(reply)
 
-        // Save in parallel. The user already sees the full text by now.
-        // The stream is closed last so Vercel doesn't stop the function before saving.
         await Promise.all([
             chat.save(),
             User.updateOne({ _id: userId }, { $inc: { credits: -1 } }),
