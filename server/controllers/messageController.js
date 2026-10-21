@@ -7,7 +7,7 @@ import openai from '../configs/openai.js'
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
 // Fastest Gemini model, no "thinking" delay. Change if you prefer another one.
-const TEXT_MODEL = "gemini-2.5-flash-lite"
+const TEXT_MODEL = "gemini-flash-latest"
 
 // Set to true to skip re-uploading the generated image to ImageKit (faster).
 // The generated URL is saved directly instead of a Media Library copy.
